@@ -31,6 +31,26 @@ export default function App() {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   }
 
+  // Expanded list of haram ingredients
+  const haramIngredients = [
+    'pork', 'alcohol', 'gelatin', 'lard', 'carnivorous animals', 'blood',
+    'rennet', 'enzymes', 'emulsifiers', 'e-numbers', 'e120', 'e904', 'e441'
+  ];
+
+  // Function to check if the product contains haram ingredients
+  const containsHaramIngredients = (ingredientsText: string) => {
+    if (!ingredientsText) return false;
+    const lowerCaseIngredients = ingredientsText.toLowerCase();
+    return haramIngredients.some(ingredient => lowerCaseIngredients.includes(ingredient));
+  };
+
+  // Function to check for halal certification
+  const hasHalalCertification = (labelsTags: string[]) => {
+    if (!labelsTags) return false;
+    const halalCertificationKeywords = ['halal', 'halal-certified', 'halal-certification'];
+    return labelsTags.some(label => halalCertificationKeywords.includes(label.toLowerCase()));
+  };
+
   async function handleBarCodeScanned({ type, data }: { type: string; data: string }) {
     if (isScanning) return;
 
@@ -40,15 +60,44 @@ export default function App() {
     try {
       // Call the Open Food Facts API
       const response = await axios.get(`https://world.openfoodfacts.org/api/v0/product/${data}.json`);
-
+      console.log(response);
       if (response.data && response.data.status === 1) {
         const product = response.data.product;
-        const isHalal = product.labels_tags?.includes('halal');
-        
-        setProductInfo({
-          name: product.product_name || 'Unknown',
-          halalStatus: isHalal ? 'Halal' : 'Not Halal',
-        });
+
+        // Check if the product is a food item
+        const isFoodItem = product.categories_tags?.some((category: string) =>
+          ['food', 'fats', 'oils', 'dairy', 'meat', 'beverages'].some(keyword => category.includes(keyword))
+        );
+
+        if (!isFoodItem) {
+          // Non-food items are not applicable for halal status
+          setProductInfo({
+            name: product.product_name || 'Unknown',
+            halalStatus: 'Not Applicable (Non-Food Item)',
+          });
+        } else {
+          // Check for halal certification
+          const isHalalCertified = hasHalalCertification(product.labels_tags);
+
+          // Check for haram ingredients
+          const ingredientsText = product.ingredients_text || '';
+          const hasHaramIngredients = containsHaramIngredients(ingredientsText);
+
+          // Determine halal status
+          let halalStatus;
+          if (isHalalCertified) {
+            halalStatus = 'Halal (Certified)';
+          } else if (hasHaramIngredients) {
+            halalStatus = 'Not Halal (Contains Haram Ingredients)';
+          } else {
+            halalStatus = 'Halal (No Haram Ingredients Detected)';
+          }
+
+          setProductInfo({
+            name: product.product_name || 'Unknown',
+            halalStatus: halalStatus,
+          });
+        }
         setIsModalVisible(true); // Show modal with product info
       } else {
         setProductInfo({
@@ -71,9 +120,9 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <CameraView 
-        style={styles.camera} 
-        facing={facing} 
+      <CameraView
+        style={styles.camera}
+        facing={facing}
         onBarcodeScanned={handleBarCodeScanned}
         barcodeScannerSettings={{
           barcodeTypes: ['qr', 'code128', 'ean13', 'ean8'],
