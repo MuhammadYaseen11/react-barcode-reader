@@ -1,18 +1,18 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useState } from 'react';
 import { Button, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
-import axios from 'axios'; // Import axios
+import axios from 'axios';
 
 export default function App() {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedData, setScannedData] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [isModalVisible, setIsModalVisible] = useState(false); // State for modal visibility
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const [productInfo, setProductInfo] = useState<any>({
-    name: null, // Initialize with a default value
-    halalStatus: null, // Initialize with a default value
-  }); // State for storing product information
+    name: null,
+    halalStatus: null,
+  });
 
   if (!permission) {
     return <View />;
@@ -22,7 +22,7 @@ export default function App() {
     return (
       <View style={styles.container}>
         <Text style={styles.message}>We need your permission to show the camera</Text>
-        <Button onPress={requestPermission} title="grant permission" />
+        <Button onPress={requestPermission} title="Grant Permission" />
       </View>
     );
   }
@@ -31,24 +31,20 @@ export default function App() {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   }
 
-  // Expanded list of haram ingredients
-  const haramIngredients = [
-    'pork', 'alcohol', 'gelatin', 'lard', 'carnivorous animals', 'blood',
-    'rennet', 'enzymes', 'emulsifiers', 'e-numbers', 'e120', 'e904', 'e441'
-  ];
+  // Function to check product via the Node.js proxy API
+  const checkHalalStatus = async (productName: string) => {
+    try {
+      const proxyResponse = await axios.post('http://192.168.1.100:5001/scan-product', {
+        name: productName,
+        halalStatus: 'Unknown', // Add logic here to determine halal status, if needed
+      });
 
-  // Function to check if the product contains haram ingredients
-  const containsHaramIngredients = (ingredientsText: string) => {
-    if (!ingredientsText) return false;
-    const lowerCaseIngredients = ingredientsText.toLowerCase();
-    return haramIngredients.some(ingredient => lowerCaseIngredients.includes(ingredient));
-  };
-
-  // Function to check for halal certification
-  const hasHalalCertification = (labelsTags: string[]) => {
-    if (!labelsTags) return false;
-    const halalCertificationKeywords = ['halal', 'halal-certified', 'halal-certification'];
-    return labelsTags.some(label => halalCertificationKeywords.includes(label.toLowerCase()));
+      console.log('Proxy Response:', proxyResponse.data);
+      return proxyResponse.data.message === 'Product data saved successfully' ? 'Halal' : 'Non-Halal';
+    } catch (error) {
+      console.error("Error checking halal status:", error);
+      return "Unknown (API Error)";
+    }
   };
 
   async function handleBarCodeScanned({ type, data }: { type: string; data: string }) {
@@ -56,55 +52,30 @@ export default function App() {
 
     setIsScanning(true);
     setScannedData(`Type: ${type}, Data: ${data}`);
+    console.log('Scanned Data:', data);
 
     try {
-      // Call the Open Food Facts API
+      // Fetch product details from Open Food Facts API
       const response = await axios.get(`https://world.openfoodfacts.org/api/v0/product/${data}.json`);
-      console.log(response);
+      console.log('Open Food Facts Response:', response.data);
+
       if (response.data && response.data.status === 1) {
         const product = response.data.product;
+        const productName = product.product_name || "Unknown";
+        console.log('Product Name:', productName);
 
-        // Check if the product is a food item
-        const isFoodItem = product.categories_tags?.some((category: string) =>
-          ['food', 'fats', 'oils', 'dairy', 'meat', 'beverages'].some(keyword => category.includes(keyword))
-        );
+        // Check with Node.js proxy API
+        const halalStatus = await checkHalalStatus(productName);
+        console.log('Halal Status:', halalStatus);
 
-        if (!isFoodItem) {
-          // Non-food items are not applicable for halal status
-          setProductInfo({
-            name: product.product_name || 'Unknown',
-            halalStatus: 'Not Applicable (Non-Food Item)',
-          });
-        } else {
-          // Check for halal certification
-          const isHalalCertified = hasHalalCertification(product.labels_tags);
-
-          // Check for haram ingredients
-          const ingredientsText = product.ingredients_text || '';
-          const hasHaramIngredients = containsHaramIngredients(ingredientsText);
-
-          // Determine halal status
-          let halalStatus;
-          if (isHalalCertified) {
-            halalStatus = 'Halal (Certified)';
-          } else if (hasHaramIngredients) {
-            halalStatus = 'Not Halal (Contains Haram Ingredients)';
-          } else {
-            halalStatus = 'Halal (No Haram Ingredients Detected)';
-          }
-
-          setProductInfo({
-            name: product.product_name || 'Unknown',
-            halalStatus: halalStatus,
-          });
-        }
-        setIsModalVisible(true); // Show modal with product info
+        setProductInfo({ name: productName, halalStatus });
+        setIsModalVisible(true); // Show the modal
       } else {
         setProductInfo({
           name: 'Unknown',
           halalStatus: 'Product not found in the database',
         });
-        setIsModalVisible(true); // Show modal with no product data
+        setIsModalVisible(true); // Show the modal
       }
     } catch (error) {
       console.error('Error fetching product information:', error);
@@ -112,9 +83,9 @@ export default function App() {
         name: 'Error',
         halalStatus: 'Failed to fetch product information',
       });
-      setIsModalVisible(true); // Show modal with error message
+      setIsModalVisible(true); // Show the modal
     } finally {
-      setTimeout(() => setIsScanning(false), 2000);
+      setTimeout(() => setIsScanning(false), 2000); // Reset scanning after 2 seconds
     }
   }
 
@@ -134,6 +105,8 @@ export default function App() {
           </TouchableOpacity>
         </View>
       </CameraView>
+
+      {/* Scanned Data */}
       {scannedData && (
         <Text style={styles.message}>Scanned Data: {scannedData}</Text>
       )}

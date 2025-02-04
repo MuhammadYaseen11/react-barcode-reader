@@ -1,12 +1,14 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 
 const app = express();
 const port = 5000;
 
-// Middleware to parse JSON data
+// Middleware to parse JSON data and enable CORS
 app.use(bodyParser.json());
+app.use(cors());
 
 // Connect to MongoDB (Replace with your MongoDB URI)
 mongoose.connect('mongodb+srv://yaseencyber:8lM5jrW1HPEr3BnZ@cluster0.p0zqz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', { useNewUrlParser: true, useUnifiedTopology: true })
