@@ -40,3 +40,5 @@ app.post('/scan-product', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
+
+//http://localhost:5001/scan-product
