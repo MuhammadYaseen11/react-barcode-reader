@@ -26,6 +26,7 @@ const Product = mongoose.model('Product', productSchema);
 
 // Route to store product scan data
 app.post('/scan-product', async (req, res) => {
+  console.log('Product received:', req.body);
   const { name, halalStatus } = req.body;
 
   try {

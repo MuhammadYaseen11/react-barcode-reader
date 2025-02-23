@@ -32,20 +32,41 @@ export default function App() {
   }
 
   // Function to check product via the Node.js proxy API
+  // const checkHalalStatus = async (productName: string) => {
+  //   try {
+  //     const proxyResponse = await axios.post('http://192.168.1.100:5001/scan-product', {
+  //       name: productName,
+  //       halalStatus: 'Unknown', // Add logic here to determine halal status, if needed
+  //     });
+
+  //     console.log('Proxy Response:', proxyResponse.data);
+  //     return proxyResponse.data.message === 'Product data saved successfully' ? 'Halal' : 'Non-Halal';
+  //   } catch (error) {
+  //     console.error("Error checking halal status:", error);
+  //     return "Unknown (API Error)";
+  //   }
+  // };
   const checkHalalStatus = async (productName: string) => {
     try {
-      const proxyResponse = await axios.post('http://192.168.1.100:5001/scan-product', {
+      const proxyResponse = await axios.post('http://192.168.1.100:5000/scan-product', {
         name: productName,
-        halalStatus: 'Unknown', // Add logic here to determine halal status, if needed
+        halalStatus: 'Unknown',
       });
-
       console.log('Proxy Response:', proxyResponse.data);
       return proxyResponse.data.message === 'Product data saved successfully' ? 'Halal' : 'Non-Halal';
-    } catch (error) {
-      console.error("Error checking halal status:", error);
+    } catch (error: any) {
+      if (error.response) {
+        console.error("Server responded with status:", error.response.status);
+        console.error("Response data:", error.response.data);
+      } else if (error.request) {
+        console.error("No response received:", error.request);
+      } else {
+        console.error("Error setting up request:", error.message);
+      }
       return "Unknown (API Error)";
     }
   };
+  
 
   async function handleBarCodeScanned({ type, data }: { type: string; data: string }) {
     if (isScanning) return;
@@ -57,7 +78,7 @@ export default function App() {
     try {
       // Fetch product details from Open Food Facts API
       const response = await axios.get(`https://world.openfoodfacts.org/api/v0/product/${data}.json`);
-      console.log('Open Food Facts Response:', response.data);
+      //console.log('Open Food Facts Response:', response.data);
 
       if (response.data && response.data.status === 1) {
         const product = response.data.product;
